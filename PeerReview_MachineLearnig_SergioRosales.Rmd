@@ -1,0 +1,74 @@
+---
+title: "Machine Learning Peer Review"
+author: "Sergio Rosales"
+date: "September 9, 2017"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Introduction
+From a data set collected using devices such as Jawbone Up, Nike FuelBand, and Fitbit; herein I built a model to predict when the barbell lifts are well done or not. Data set comes already in separated files, "pml-testing.csv"" and "pml-training.csv". The construction of the model follows these steps:
+## Step 1: Question
+¿is it possible to predict when a barbell lift is well or bad done?
+## Step 2: Data
+### Exploring Data
+After loading data set we can extract next characteristics from it:
+```{r Exploratory Data Analisys}
+##training
+fileNameTraining <- file.path(getwd(),"/pml-training.csv")
+training <- read.csv(fileNameTraining, header = TRUE,na.strings= c("#DIV/0!", "NA"))
+##testing
+fileNameTesting <- file.path(getwd(),"/pml-testing.csv")
+testing <- read.csv(fileNameTesting, header = TRUE, na.strings= c("#DIV/0!", "NA"))
+dim(training)
+str(training, list.len=10)
+```
+### Target
+The "classe" variable (categorical) in the training set classifies the manner in which subjects did the exercise in these five categories:
+* Class A: exactly according to the specification 
+* Class B: throwing the elbows to the front
+* Class C: lifting the dumbbell only halfway
+* Class D: lowering the dumbbell only halfway
+* Class E: throwing the hips to the front
+```{r classe variable}
+## class of "classe"
+class(training$classe)
+## Levels of "classe"
+levels(training$classe)
+```
+## Step 3: Features (Predictors)
+Prior to any training it is needed to firstly remove all columns with missing values:
+```{r predictors}
+training <- training[ , apply(training, 2, function(x) !any(is.na(x)))]
+anyNA(training)
+```
+Since anyNA() function returs FALSE, it means we don't have any missing values.
+
+## Step 4: Algorithm
+I ran a classification model with Cross validation type k-fold (10 folds) and a pre-processing according principal components method.To select splits during the classification I have used "information gain" method by specifying it in the parms parameter.
+```{r Algorithm}
+library(caret)
+library(rpart)
+library(rpart.plot)
+# define training control
+ctrl <- trainControl(method="repeatedcv", number=10, repeats=3, preProcOptions= list(thresh= 0.95))
+set.seed(3333)
+# train the model
+model <- train(as.factor(classe) ~ .,data= training, preProcess= "pca", method="rpart",parms = list(split = "information"), trControl=ctrl, tuneLength = 10)
+# summarize results
+print(model$finalModel)
+rpart.plot(model$finalModel)
+model
+```
+### Out of sample error
+The out of sample error is stimated to be 0,912:
+```{r Out of sample error}
+confusionMatrix(model)
+```
+
+## Step 5: Prediction
+Having the algorithm, finally I executed prediction on the testing subset of 20 cases:
+```{r Prediction}
+predict(model, newdata=testing)
+```
